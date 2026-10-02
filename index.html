@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkWell Workflow</title>
+
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #111;
+    color: #eee;
+    font-family: system-ui, sans-serif;
+  }
+
+  #app {
+    width: min(760px, 100%);
+    margin: auto;
+    padding: 18px;
+  }
+
+  h1 {
+    margin: 0 0 4px;
+    font-size: 28px;
+  }
+
+  .sub {
+    color: #888;
+    margin-bottom: 20px;
+  }
+
+  .panel {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+
+  label {
+    display: block;
+    margin: 14px 0 7px;
+    color: #aaa;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  select,
+  button,
+  input {
+    font: inherit;
+  }
+
+  select {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #444;
+    background: #111;
+    color: #fff;
+  }
+
+  .durations {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  button {
+    min-height: 44px;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #444;
+    background: #222;
+    color: #eee;
+    cursor: pointer;
+  }
+
+  button.active {
+    border-color: #fff;
+    background: #eee;
+    color: #111;
+  }
+
+  #generate {
+    width: 100%;
+    margin-top: 16px;
+    background: #fff;
+    color: #111;
+    font-weight: 800;
+  }
+
+  .command {
+    font-size: 32px;
+    font-weight: 900;
+  }
+
+  .state {
+    display: inline-block;
+    margin-top: 5px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: #333;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .workflow {
+    margin-top: 15px;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 35px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #292929;
+  }
+
+  .number {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #333;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .time {
+    color: #777;
+    font-size: 12px;
+  }
+
+  .progress {
+    height: 8px;
+    background: #292929;
+    border-radius: 20px;
+    overflow: hidden;
+    margin-top: 15px;
+  }
+
+  #bar {
+    width: 0%;
+    height: 100%;
+    background: #fff;
+  }
+
+  .small {
+    color: #777;
+    font-size: 13px;
+    margin-top: 10px;
+  }
+</style>
+</head>
+
+<body>
+
+<div id="app">
+
+  <h1>WORKFLOW</h1>
+  <div class="sub">
+    Time × Intensity × Command × State
+  </div>
+
+  <div class="panel">
+
+    <label>Command</label>
+
+    <select id="command">
+      <option>CLEAN</option>
+      <option>LAUNDRY</option>
+      <option>CODE</option>
+      <option>READ</option>
+      <option>STUDY</option>
+      <option>COOK</option>
+      <option>HYGIENE</option>
+      <option>MENTAL</option>
+      <option>WALK</option>
+      <option>KORIN</option>
+    </select>
+
+    <label>Current State</label>
+
+    <select id="state"></select>
+
+    <label>Duration</label>
+
+    <div class="durations">
+      <button data-time="1">1 MIN</button>
+      <button data-time="5" class="active">5 MIN</button>
+      <button data-time="10">10 MIN</button>
+      <button data-time="15">15 MIN</button>
+      <button data-time="30">30 MIN</button>
+      <button data-time="60">60 MIN</button>
+    </div>
+
+    <label>
+      Intensity:
+      <span id="intensityValue">5</span>/10
+    </label>
+
+    <input
+      id="intensity"
+      type="range"
+      min="1"
+      max="10"
+      value="5"
+      style="width:100%"
+    >
+
+    <button id="generate">GENERATE WORKFLOW</button>
+
+  </div>
+
+  <div class="panel">
+
+    <div class="command" id="title">READY</div>
+
+    <div class="state" id="currentState">
+      Select a workflow
+    </div>
+
+    <div class="workflow" id="workflow"></div>
+
+    <div class="progress">
+      <div id="bar"></div>
+    </div>
+
+    <div class="small" id="status"></div>
+
+  </div>
+
+</div>
+
+
+<script>
+
+const WORKFLOWS = {
+
+  CLEAN: {
+    states: [
+      "UNSTARTED",
+      "GATHER",
+      "CLEANING",
+      "RESET",
+      "COMPLETE"
+    ],
+
+    activities: [
+      "Clear visible trash",
+      "Gather dishes",
+      "Wipe one surface",
+      "Put 5 things away",
+      "Sweep a small area",
+      "Reset desk",
+      "Clear floor clutter",
+      "Wipe handles",
+      "Organize one drawer",
+      "Final room reset"
+    ]
+  },
+
+  LAUNDRY: {
+    states: [
+      "NOT STARTED",
+      "SORTED",
+      "WASHING",
+      "DRYING",
+      "FOLDING",
+      "PUT AWAY",
+      "COMPLETE"
+    ],
+
+    activities: [
+      "Gather laundry",
+      "Sort one load",
+      "Load washer",
+      "Start washer",
+      "Transfer load",
+      "Start dryer",
+      "Fold dry clothes",
+      "Pair items",
+      "Hang clothes",
+      "Put clothes away",
+      "Clear hamper",
+      "Reset laundry area"
+    ]
+  },
+
+  CODE: {
+    states: [
+      "IDEA",
+      "STARTED",
+      "BUILDING",
+      "TESTING",
+      "FIXING",
+      "COMPLETE"
+    ],
+
+    activities: [
+      "Choose one tiny target",
+      "Read the relevant code",
+      "Write one small function",
+      "Make one focused change",
+      "Run a test",
+      "Fix one issue",
+      "Refactor a small section",
+      "Add a comment",
+      "Check an edge case",
+      "Create a checkpoint"
+    ]
+  },
+
+  READ: {
+    states: [
+      "UNREAD",
+      "READING",
+      "PAUSED",
+      "FINISHED"
+    ],
+
+    activities: [
+      "Read continuously",
+      "Mark the main idea",
+      "Recall what you just read",
+      "Continue the section",
+      "Identify an unfamiliar term",
+      "Write one sentence about it",
+      "Make one connection",
+      "Re-read a difficult passage",
+      "Write one question"
+    ]
+  },
+
+  STUDY: {
+    states: [
+      "NOT STARTED",
+      "REVIEWING",
+      "PRACTICING",
+      "RECALLING",
+      "COMPLETE"
+    ],
+
+    activities: [
+      "Review one concept",
+      "Answer a question",
+      "Recall without notes",
+      "Check the answer",
+      "Explain the idea",
+      "Practice one example",
+      "Find one mistake",
+      "Summarize the concept",
+      "Make one flashcard"
+    ]
+  },
+
+  COOK: {
+    states: [
+      "PLAN",
+      "PREP",
+      "COOKING",
+      "SERVE",
+      "CLEANUP",
+      "COMPLETE"
+    ],
+
+    activities: [
+      "Choose the next ingredient",
+      "Wash ingredients",
+      "Prep one ingredient",
+      "Chop or portion",
+      "Start cooking",
+      "Check progress",
+      "Plate or portion",
+      "Wash one tool",
+      "Wipe the station",
+      "Reset the kitchen"
+    ]
+  },
+
+  HYGIENE: {
+    states: [
+      "NOT STARTED",
+      "WASH",
+      "GROOM",
+      "DRESS",
+      "COMPLETE"
+    ],
+
+    activities: [
+      "Brush teeth",
+      "Floss",
+      "Wash face",
+      "Shower",
+      "Apply deodorant",
+      "Hair care",
+      "Change clothes",
+      "Skincare",
+      "Clean personal item",
+      "Reset bathroom area"
+    ]
+  },
+
+  MENTAL: {
+    states: [
+      "PAUSE",
+      "RESET",
+      "REFLECT",
+      "PLAN",
+      "COMPLETE"
+    ],
+
+    activities: [
+      "Take slow breaths",
+      "Put the phone down",
+      "Sit quietly",
+      "Write a quick thought dump",
+      "Name the next useful action",
+      "Take a short walk",
+      "Write one thing on your mind",
+      "Choose one thing you can control",
+      "Set up the next task"
+    ]
+  },
+
+  WALK: {
+    states: [
+      "READY",
+      "WALKING",
+      "RECOVERY",
+      "COMPLETE"
+    ],
+
+    activities: [
+      "Start walking",
+      "Set an easy pace",
+      "Check posture",
+      "Relax shoulders",
+      "Change direction",
+      "Increase pace briefly",
+      "Return to easy pace",
+      "Cool down"
+    ]
+  },
+
+  KORIN: {
+    states: [
+      "READY",
+      "OBSERVE",
+      "REACT",
+      "RECOVER",
+      "CONFIRM",
+      "COMPLETE"
+    ],
+
+    activities: [
+      "Observe the cue",
+      "Choose a response",
+      "React to the signal",
+      "Reset stance",
+      "Confirm the result",
+      "Change the cue",
+      "Repeat cleanly",
+      "Recover and prepare"
+    ]
+  }
+
+};
+
+
+let duration = 5;
+let intensity = 5;
+let timer = null;
+
+
+const command = document.getElementById("command");
+const state = document.getElementById("state");
+const intensityInput = document.getElementById("intensity");
+const intensityValue = document.getElementById("intensityValue");
+const workflow = document.getElementById("workflow");
+const title = document.getElementById("title");
+const currentState = document.getElementById("currentState");
+const bar = document.getElementById("bar");
+const status = document.getElementById("status");
+
+
+function shuffle(array) {
+
+  const copy = [...array];
+
+  for (let i = copy.length - 1; i > 0; i--) {
+
+    const j = Math.floor(Math.random() * (i + 1));
+
+    [copy[i], copy[j]] =
+      [copy[j], copy[i]];
+
+  }
+
+  return copy;
+}
+
+
+function updateStates() {
+
+  const data = WORKFLOWS[command.value];
+
+  state.innerHTML = "";
+
+  data.states.forEach(value => {
+
+    const option =
+      document.createElement("option");
+
+    option.value = value;
+    option.textContent = value;
+
+    state.appendChild(option);
+
+  });
+
+}
+
+
+function activityCount() {
+
+  /*
+    Shorter slots produce fewer activities.
+    Intensity can increase the count.
+    Maximum is 6, preserving the King Kai
+    "up to six workouts" behavior.
+  */
+
+  return Math.max(
+    2,
+    Math.min(
+      6,
+      Math.round(
+        2 +
+        duration / 8 +
+        intensity / 4
+      )
+    )
+  );
+
+}
+
+
+function generateWorkflow() {
+
+  clearInterval(timer);
+
+  const data = WORKFLOWS[command.value];
+
+  const count =
+    Math.min(
+      activityCount(),
+      data.activities.length
+    );
+
+  let activities =
+    shuffle(data.activities)
+      .slice(0, count);
+
+
+  /*
+    Higher intensity changes the
+    ordering more aggressively.
+  */
+
+  if (intensity >= 7) {
+
+    activities =
+      shuffle(activities);
+
+  }
+
+
+  title.textContent =
+    command.value;
+
+  currentState.textContent =
+    state.value;
+
+
+  workflow.innerHTML = "";
+
+
+  const secondsPerActivity =
+    duration * 60 / activities.length;
+
+
+  activities.forEach((activity, index) => {
+
+    const row =
+      document.createElement("div");
+
+    row.className = "step";
+
+    row.innerHTML = `
+      <div class="number">
+        ${index + 1}
+      </div>
+
+      <div>
+        ${activity}
+      </div>
+
+      <div class="time">
+        ${Math.max(
+          1,
+          Math.round(secondsPerActivity / 6) / 10
+        )}m
+      </div>
+    `;
+
+    workflow.appendChild(row);
+
+  });
+
+
+  status.textContent =
+    `${duration} min · intensity ${intensity} · `
+    + `${activities.length} activities · `
+    + `state: ${state.value}`;
+
+
+  bar.style.width = "0%";
+
+
+  /*
+    Real session timer.
+  */
+
+  const total =
+    duration * 60;
+
+  const start =
+    Date.now();
+
+
+  timer = setInterval(() => {
+
+    const elapsed =
+      Math.min(
+        total,
+        (Date.now() - start) / 1000
+      );
+
+    bar.style.width =
+      `${(elapsed / total) * 100}%`;
+
+
+    if (elapsed >= total) {
+
+      clearInterval(timer);
+
+      currentState.textContent =
+        "COMPLETE";
+
+      status.textContent =
+        "Workflow complete.";
+
+    }
+
+  }, 250);
+
+}
+
+
+command.addEventListener(
+  "change",
+  updateStates
+);
+
+
+document.querySelectorAll(
+  "[data-time]"
+).forEach(button => {
+
+  button.addEventListener(
+    "click",
+    () => {
+
+      duration =
+        Number(button.dataset.time);
+
+      document.querySelectorAll(
+        "[data-time]"
+      ).forEach(b =>
+        b.classList.remove("active")
+      );
+
+      button.classList.add("active");
+
+    }
+  );
+
+});
+
+
+intensityInput.addEventListener(
+  "input",
+  () => {
+
+    intensity =
+      Number(intensityInput.value);
+
+    intensityValue.textContent =
+      intensity;
+
+  }
+);
+
+
+document.getElementById(
+  "generate"
+).addEventListener(
+  "click",
+  generateWorkflow
+);
+
+
+updateStates();
+
+</script>
+
+</body>
+</html>
